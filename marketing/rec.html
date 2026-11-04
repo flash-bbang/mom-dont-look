@@ -1,0 +1,627 @@
+<!doctype html><html lang=ko><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><title>엄마 몰래 폰겜</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: HUD on top; one canvas with the watcher's room above and you on the sofa below; overlays centred. */
+:root{--ink:#1c1614;--cream:#fffaf0;--butter:#ffd64a;--red:#e0453a;--muted:#4b4360;--kr:"Noto Sans CJK KR Black",system-ui,sans-serif;--px:"Noto Sans CJK KR Black","Courier New",monospace;color-scheme:light}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{margin:0;background:#f3e6d6;color:var(--ink);font-family:var(--kr);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;word-break:keep-all;-webkit-tap-highlight-color:transparent}
+#app{position:relative;height:100%;display:flex;flex-direction:column}
+#hud{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:4px;padding-left:max(14px,env(safe-area-inset-left,0px));padding-right:max(14px,env(safe-area-inset-right,0px))}
+.hl{display:flex;flex-direction:column;line-height:1.15}
+.hl small{font-family:var(--px);font-size:8px;color:#6b5a48}
+#lives{font-size:17px;letter-spacing:1px;white-space:nowrap}
+#score{font-family:var(--px);font-size:clamp(18px,6vw,26px);text-shadow:3px 3px 0 #fff}
+.ibtn{width:38px;height:38px;border-radius:12px;border:3px solid var(--ink);background:var(--cream);color:var(--ink);display:grid;place-items:center;cursor:pointer;box-shadow:0 3px 0 var(--ink);padding:0}
+.ibtn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.ibtn .slash{display:none}.ibtn[aria-pressed="true"] .slash{display:inline}.ibtn[aria-pressed="true"] .wave{display:none}
+#stage{position:relative;flex:1;min-height:0}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(40,30,50,.5);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:calc(16px + env(safe-area-inset-top,0px)) calc(16px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+.overlay.mock{background:rgba(120,24,20,.6)}
+.card{width:min(360px,100%);max-height:100%;overflow:auto;background:var(--cream);border:4px solid var(--ink);border-radius:20px;box-shadow:0 6px 0 var(--ink);padding:18px 16px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:9px;text-align:center}
+.card>*{flex-shrink:0}
+.logo{font-family:var(--px);font-size:21px;line-height:1.45;margin:0;font-weight:400}
+.logo span{color:var(--red)}
+.sub{font-size:18px;color:var(--muted);margin:0;line-height:1.4;text-wrap:balance}
+.sub b{font-weight:400;color:var(--red)}
+.face{width:140px;height:140px}
+.kicker{font-family:var(--px);font-size:10px;color:var(--muted);margin:0;letter-spacing:.05em}
+.aname{font-size:32px;margin:0}
+.say{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:8px 12px;font-size:19px;line-height:1.3}
+.nick{display:flex;align-items:center;gap:8px;width:100%;background:#f6eee4;border:3px solid var(--ink);border-radius:999px;padding:4px 5px 4px 14px;box-sizing:border-box}
+.nick.warn{border-color:var(--red);animation:shake .4s}
+.nick label{font-size:17px;white-space:nowrap}
+.nick input{flex:1;min-width:0;font-family:var(--kr);font-size:19px;border:0;background:#fff;border-radius:999px;padding:8px 12px;outline:none;color:var(--ink)}
+.nickwarn{font-size:17px;color:#c9322a}.nickwarn:empty{display:none}
+.btn{font-family:var(--kr);font-size:22px;border:3px solid var(--ink);border-radius:14px;background:var(--butter);color:var(--ink);padding:10px 22px;cursor:pointer;box-shadow:0 4px 0 var(--ink);min-width:150px}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.btn.ghost{background:#fff;font-size:18px;padding:8px 16px;min-width:0}
+.btn:focus-visible,.ibtn:focus-visible{outline:3px solid #7a5cc9;outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.mockbig{font-size:29px;line-height:1.2;margin:0;color:var(--red);text-wrap:balance}
+.big{font-family:var(--px);font-size:24px}
+.stats{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.stats div{display:flex;flex-direction:column;gap:2px}.stats b{font-family:var(--px);font-size:12px;font-weight:400}.stats span{font-size:15px;color:var(--muted)}
+.newbest{color:#c9783f;font-size:20px}.myrank{font-size:18px;min-height:20px}
+@keyframes shake{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+@keyframes wobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.mock .mockbig{animation:wobble .5s infinite}
+.rank-card{width:min(380px,100%);max-height:100%;display:flex;flex-direction:column;background:var(--cream);border:4px solid var(--ink);border-radius:20px;box-shadow:0 6px 0 var(--ink);padding:16px 16px 10px;box-sizing:border-box;overflow:hidden}
+.rank-head{display:flex;align-items:center;justify-content:space-between}.rank-head h2{margin:0;font-weight:400;font-size:26px}
+.rank-note{margin:6px 0 10px;font-size:15px;color:var(--muted)}
+#rankList{list-style:none;margin:0;padding:0;overflow-y:auto;min-height:0;flex:1}
+#rankList li{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px 6px;border-top:2px dashed #e3d6c6}
+#rankList li.me{background:#fff1c2;border-radius:10px}
+#rankList .rk{font-family:var(--px);font-size:12px;text-align:center}
+#rankList .nm{font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#rankList .nm small{display:block;font-size:13px;color:#7a6a5a}
+#rankList b{font-family:var(--px);font-size:12px;font-weight:400}
+@media (prefers-reduced-motion:reduce){.nick.warn,.mock .mockbig{animation:none}}
+#hud{display:none!important}
+#stage{margin-top:106px}
+body{background:#3a2f45!important}
+.overlay{padding-top:112px!important;align-items:flex-start!important}
+.overlay .card{gap:7px;padding:14px 16px}
+#over .row,#myRank,#over .stats{display:none}
+.cap{position:absolute;left:0;right:0;top:16px;z-index:30;text-align:center;padding:0 12px;font-family:"Noto Sans CJK KR Black",sans-serif;font-size:29px;line-height:1.2;color:#fff;pointer-events:none;
+  text-shadow:3px 3px 0 #1c1614,-3px 3px 0 #1c1614,3px -3px 0 #1c1614,-3px -3px 0 #1c1614,0 3px 0 #1c1614,0 -3px 0 #1c1614,3px 0 0 #1c1614,-3px 0 0 #1c1614}
+.cap em{font-style:normal;color:#ffd64a}
+.cap:empty{display:none}
+#finger{position:absolute;z-index:25;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.55);border:3px solid rgba(28,22,20,.75);pointer-events:none;display:none;left:290px;top:560px}
+#endcard{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:0 20px;background:radial-gradient(circle at 50% 32%,#fff6ee 0%,#f7e1c4 50%,#f07a8a 100%);color:#1c1614;font-family:"Noto Sans CJK KR Black",sans-serif}
+#endcard canvas{width:150px;height:150px}
+#endcard .t{font-size:48px;line-height:1.05;letter-spacing:-1px}
+#endcard .t span{color:#e0453a}
+#endcard .s{font-size:21px;color:#4b4360}
+#endcard .u{font-family:"Noto Sans CJK KR",sans-serif;font-weight:700;font-size:18px;background:#1c1614;color:#fffaf0;padding:11px 20px;border-radius:999px}
+#endcard .k{font-size:19px;line-height:1.35;color:#4b4360}
+#endcard .k b{display:block;font-size:26px;color:#e0453a;margin-top:4px}
+</style>
+
+</head><body><div id="app">
+  <div id="cap" class="cap"></div>
+  <div id="finger"></div>
+  <div id="endcard" hidden><canvas id="endFace" width="280" height="280"></canvas><div class="t">엄마 몰래<br><span>폰겜</span></div><div class="s">꾹 누르면 폰겜, 떼면 공부하는 척</div><div class="u">🔗 링크는 프로필에</div><div class="k">지금 바로 무료 플레이<b>엄마한테 안 걸릴 자신 있어요?</b></div></div>
+  <div id="hud">
+    <div class="hl"><small id="stageNo">STAGE 1/5</small><span id="lives" aria-label="남은 기회"></span></div>
+    <div id="score" aria-live="polite">0</div>
+    <div class="row" style="gap:6px">
+      <button class="ibtn" id="rankBtn" type="button" aria-label="순위 보기"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v3h3v3a4 4 0 0 1-4 4h-.5A5 5 0 0 1 13 15.9V19h3v2H8v-2h3v-3.1A5 5 0 0 1 8.5 13H8a4 4 0 0 1-4-4V6h3zM6 8v1a2 2 0 0 0 2 2V8zm12 0h-2v3a2 2 0 0 0 2-2z" fill="currentColor"/></svg></button>
+      <button class="ibtn" id="mute" type="button" aria-label="소리 끄기" aria-pressed="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="slash" d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    </div>
+  </div>
+  <div id="stage"><canvas id="c" aria-label="엄마 몰래 폰겜. 화면을 꾹 누르면 폰 게임을 하고, 떼면 공부하는 척해요. 감시자가 돌아보기 전에 손을 떼세요."></canvas></div>
+
+  <div class="overlay" id="start">
+    <div class="card">
+      <canvas class="face" id="stFace" width="280" height="280" aria-hidden="true"></canvas>
+      <h1 class="logo">MOM<br><span>DON'T LOOK</span></h1>
+      <p class="sub"><b>꾹 누르면 폰겜</b>, 떼면 공부하는 척!<br>돌아보기 전에 손 떼세요.<br>카톡·고자질·광고 방해 주의!<br>엄마 → 선생님 → 부장님 → 여친 → 할머니</p>
+      <div class="nick"><label for="nick">닉네임</label><input id="nick" maxlength="12" autocomplete="nickname" placeholder="닉네임을 입력하세요" enterkeyhint="go"></div>
+      <div id="nickWarn" class="nickwarn" role="alert"></div>
+      <button class="btn" id="startBtn" type="button">몰래 시작</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="intro" hidden>
+    <div class="card">
+      <p class="kicker" id="inKick">STAGE 1</p>
+      <canvas class="face" id="inFace" width="280" height="280" aria-hidden="true"></canvas>
+      <h2 class="aname" id="inName">엄마</h2>
+      <div class="say" id="inSay"></div>
+      <p class="sub" id="inRule"></p>
+      <button class="btn" id="goBtn" type="button">몰래 하기</button>
+    </div>
+  </div>
+
+  <div class="overlay mock" id="over" hidden>
+    <div class="card">
+      <canvas class="face" id="goFace" width="280" height="280" aria-hidden="true"></canvas>
+      <p class="mockbig" id="goBig"></p>
+      <p class="sub" id="goSub"></p>
+      <div class="big" id="goScore">0</div>
+      <div class="stats">
+        <div><b id="goStage">1</b><span>도달</span></div>
+        <div><b id="goSafe">0</b><span>아슬아슬 세이프</span></div>
+        <div><b id="goBest">0</b><span>최고 점수</span></div>
+      </div>
+      <div class="newbest" id="goNew" hidden>그래도 최고 기록 ㅋ</div>
+      <div class="myrank" id="myRank"></div>
+      <button class="btn" id="againBtn" type="button">폰 돌려받고 다시</button>
+      <div class="row"><button class="btn ghost" id="rankBtn2" type="button">순위 보기</button><button class="btn ghost" id="shareBtn" type="button">걸린 거 인증</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="win" hidden>
+    <div class="card">
+      <canvas class="face" id="wFace" width="280" height="280" aria-hidden="true"></canvas>
+      <p class="mockbig" style="color:#c9783f">눈치 만렙!</p>
+      <p class="sub">할머니까지 속였어요. 폰겜 고수 인정</p>
+      <div class="big" id="wScore">0</div>
+      <div class="newbest" id="wNew" hidden>새 최고 기록!</div>
+      <div class="myrank" id="myRank2"></div>
+      <button class="btn" id="againBtn2" type="button">한 번 더</button>
+      <div class="row"><button class="btn ghost" id="rankBtn3" type="button">순위 보기</button><button class="btn ghost" id="shareBtn2" type="button">기록 자랑</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="rankPanel" hidden role="dialog" aria-modal="true" aria-labelledby="rankTitle">
+    <div class="rank-card">
+      <div class="rank-head"><h2 id="rankTitle">순위 TOP 30</h2><button class="ibtn" id="rankClose" type="button" aria-label="닫기">✕</button></div>
+      <p id="rankNote" class="rank-note"></p>
+      <ol id="rankList"></ol>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const store = { get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } }, set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} } };
+  const INK = '#1c1614', KR = '"Noto Sans CJK KR Black", system-ui, sans-serif', PX = '"Noto Sans CJK KR Black", monospace';
+  const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
+
+  // ================= the five watchers =================
+  const WATCH = [
+    {id:'mom', name:'엄마', place:'거실', warn:.85, away:[1.8, 3.6], look:[1.2, 2.2], fake:.15, double:0, need:7,
+     intro:'숙제 다 했지? 엄마 설거지한다~', hum:'♪ 흥얼흥얼', peek:'흠…?', fakeLine:'…아 아니다',
+     caught:['등짝 스매싱!!', '폰 압수!!', '공부 안 해?!'], over:['엄마한테 폰 압수당함 ㅋㅋ', '등짝에 손바닥 자국 남음']},
+    {id:'teacher', name:'선생님', place:'교실', warn:.7, away:[1.6, 3.2], look:[1.2, 2.0], fake:.25, double:.1, need:8,
+     intro:'자~ 칠판 보세요. 딴짓하면 알지?', hum:'(판서 중)', peek:'거기 뒤에…', fakeLine:'…계속 쓸게요',
+     caught:['압수! 방과 후 남아!', '칠판 앞으로 나와!', '부모님 모셔와!'], over:['선생님한테 폰 뺏김 ㅋㅋ', '방과 후 청소 당첨']},
+    {id:'boss', name:'부장님', place:'사무실', warn:.55, away:[1.4, 3.0], look:[1.0, 2.0], fake:.3, double:.15, need:9,
+     intro:'박대리, 보고서 오늘까지인 거 알지?', hum:'(타자 소리)', peek:'박대리…?', fakeLine:'…아 메일이네',
+     caught:['박대리 일 안 해?!', '오늘 야근이다!', '연봉 협상 기대해'], over:['부장님한테 걸림 ㅋㅋ', '야근 확정. 폰겜은 퇴근하고']},
+    {id:'gf', name:'여자친구', place:'카페', warn:.45, away:[1.3, 2.8], look:[1.0, 1.8], fake:.35, double:.2, need:10,
+     intro:'오늘 있었던 일 얘기해 줄게~', hum:'그래서 걔가~', peek:'듣고 있어?', fakeLine:'…아무튼!',
+     caught:['내 말 듣고 있어?!', '폰이 나보다 좋아?', '우리 얘기 좀 해'], over:['여친한테 걸림… ㅋㅋ', '오늘 집에 가서 반성문']},
+    {id:'grandma', name:'할머니', place:'시골집', warn:.32, away:[1.1, 2.6], look:[.9, 1.6], fake:.4, double:.3, need:11, boss:true,
+     intro:'우리 강아지 할미 옆에 있어~', hum:'(TV 보는 중)', peek:'얘야…?', fakeLine:'…아이고 허리야',
+     caught:['할미가 다 봤다!', '용돈 끝이다!', '눈 나빠진다!'], over:['할머니 눈치 못 이김 ㅋㅋ', '세뱃돈 동결']},
+  ];
+  const SNITCH = {mom:['동생', '엄마~ 형 폰 해!!', '#e0453a'], teacher:['반장', '선생님! 쟤 폰 해요!', '#2fae7c'], boss:['김대리', '부장님~ 박대리 겜 해요', '#7a5cc9'], gf:['여친 친구', '얘 또 폰 본다~', '#f07aa8'], grandma:['바둑이', '멍멍!! 멍!!', 'dog']};
+  const SAFE = ['세이프!', '아슬아슬~', '휴…', '연기 대상'];
+  const TOO_EARLY = ['쫄았지? ㅋ', '아무도 안 봤는데?', '겁쟁이 ㅋ'];
+
+  // ================= canvas =================
+  const cv = $('c'), ctx = cv.getContext('2d'), DW = 360, DH = 600;
+  let W = 0, H = 0, dpr = 1, S = 1, OX = 0, OY = 0;
+  function resize(){ const r = cv.getBoundingClientRect(); dpr = Math.min(3, devicePixelRatio || 1); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; S = Math.min(W / DW, H / DH); OX = (W - DW * S) / 2; OY = (H - DH * S) / 2; }
+  addEventListener('resize', resize); resize();
+  function ell(c, x, y, rx, ry, rot, fill, lw){ c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, 7); c.fillStyle = fill; c.fill(); if (lw){ c.lineWidth = lw; c.strokeStyle = INK; c.stroke(); } }
+  function rr(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+
+  // ================= rooms =================
+  function drawRoom(c, id, t){
+    const wall = {mom:'#f7e1c4', teacher:'#dfe9d7', boss:'#dde3ec', gf:'#f6dcd8', grandma:'#efe2c2'}[id];
+    c.fillStyle = wall; c.fillRect(0, 0, DW, 330);
+    c.fillStyle = 'rgba(0,0,0,.05)'; for (let x = 0; x < DW; x += 24) c.fillRect(x, 0, 2, 330);
+    if (id === 'mom'){
+      c.fillStyle = '#bfe3f2'; rr(c, 120, 40, 120, 80, 6); c.fill(); c.lineWidth = 4; c.strokeStyle = INK; c.stroke(); c.beginPath(); c.moveTo(180, 40); c.lineTo(180, 120); c.stroke();
+      c.fillStyle = '#e7d3b6'; c.fillRect(40, 220, 280, 110); c.strokeRect(40, 220, 280, 110); c.fillStyle = '#c8d2da'; c.fillRect(120, 210, 120, 16); c.strokeRect(120, 210, 120, 16);
+      c.fillStyle = '#9fb7c9'; c.fillRect(60, 160, 40, 30); c.strokeRect(60, 160, 40, 30);
+    } else if (id === 'teacher'){
+      c.fillStyle = '#2f5d4a'; rr(c, 30, 40, 300, 150, 6); c.fill(); c.lineWidth = 5; c.strokeStyle = '#8a5a35'; c.stroke();
+      c.fillStyle = 'rgba(255,255,255,.85)'; c.font = `22px ${KR}`; c.textAlign = 'left'; c.fillText('x² + 2x + 1 = 0', 60, 90); c.fillText('∴ x = -1', 60, 125); c.fillText('시험 범위 ~ p.128', 60, 160);
+      c.fillStyle = '#c89a6a'; c.fillRect(40, 260, 280, 70); c.strokeStyle = INK; c.lineWidth = 4; c.strokeRect(40, 260, 280, 70);
+    } else if (id === 'boss'){
+      c.fillStyle = '#b9c2cf'; c.fillRect(0, 230, DW, 100); c.strokeStyle = INK; c.lineWidth = 4; c.strokeRect(-4, 230, DW + 8, 100);
+      c.fillStyle = '#2b3550'; rr(c, 210, 150, 110, 76, 6); c.fill(); c.stroke(); c.fillStyle = '#7fc4ff'; c.fillRect(218, 158, 94, 60);
+      c.fillStyle = '#fff'; c.font = `12px ${KR}`; c.textAlign = 'left'; c.fillText('실적 보고.xlsx', 224, 178); c.fillText('야근 일정.hwp', 224, 198);
+      c.fillStyle = '#e8eaf0'; rr(c, 40, 40, 90, 60, 4); c.fill(); c.lineWidth = 3; c.stroke(); c.fillStyle = INK; c.font = `13px ${KR}`; c.textAlign = 'center'; c.fillText('이달의 목표', 85, 66); c.fillText('120%', 85, 88);
+    } else if (id === 'gf'){
+      c.fillStyle = '#cfe9f5'; rr(c, 30, 30, 300, 130, 8); c.fill(); c.lineWidth = 4; c.strokeStyle = INK; c.stroke();
+      c.fillStyle = '#8fbf7a'; for (let i = 0; i < 5; i++){ c.beginPath(); c.arc(60 + i * 60, 150, 22, Math.PI, 0); c.fill(); }
+      c.fillStyle = '#a47149'; c.fillRect(60, 270, 240, 18); c.strokeRect(60, 270, 240, 18);
+      ell(c, 120, 262, 14, 8, 0, '#fff', 2.5); ell(c, 240, 262, 14, 8, 0, '#fff', 2.5); ell(c, 120, 260, 10, 5, 0, '#6b3f22'); ell(c, 240, 260, 10, 5, 0, '#e89aa8');
+    } else {
+      c.fillStyle = '#f3ead2'; for (let i = 0; i < 4; i++){ c.fillRect(20 + i * 82, 30, 74, 140); c.strokeStyle = '#8a6a45'; c.lineWidth = 3; c.strokeRect(20 + i * 82, 30, 74, 140); c.beginPath(); c.moveTo(57 + i * 82, 30); c.lineTo(57 + i * 82, 170); c.moveTo(20 + i * 82, 100); c.lineTo(94 + i * 82, 100); c.stroke(); }
+      c.fillStyle = '#3a3f4a'; rr(c, 220, 190, 110, 80, 6); c.fill(); c.strokeStyle = INK; c.lineWidth = 4; c.stroke(); c.fillStyle = '#8fd0ff'; c.fillRect(228, 198, 94, 62); c.fillStyle = '#fff'; c.font = `12px ${KR}`; c.textAlign = 'center'; c.fillText('6시 내고향', 275, 233);
+      c.fillStyle = '#c9a26b'; c.fillRect(0, 290, DW, 40);
+    }
+    c.fillStyle = 'rgba(0,0,0,.08)'; c.fillRect(0, 322, DW, 8);
+  }
+
+  // ================= watcher (pose: back | peek | front | angry) =================
+  function drawWatcher(c, id, pose, x, y, t, s = 1){
+    c.save(); c.translate(x, y); c.scale(s, s);
+    const skin = '#f2c79b', look = pose === 'front' || pose === 'angry';
+    const C = {
+      mom:{hair:'#6b3f22', top:'#f07a8a', extra:'apron'}, teacher:{hair:'#2a2522', top:'#5b6b8a', extra:'glasses'},
+      boss:{hair:'#3b3430', top:'#2b3550', extra:'bald'}, gf:{hair:'#1f1a17', top:'#f2a6c8', extra:'long'}, grandma:{hair:'#e8e6e1', top:'#8a5aa8', extra:'bun'}
+    }[id];
+    // body
+    c.fillStyle = C.top; c.strokeStyle = INK; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(-42, 110); c.quadraticCurveTo(-46, 40, 0, 34); c.quadraticCurveTo(46, 40, 42, 110); c.closePath(); c.fill(); c.stroke();
+    if (C.extra === 'apron' && look){ c.fillStyle = '#fff'; rr(c, -22, 52, 44, 58, 8); c.fill(); c.stroke(); }
+    if (pose === 'back' && id !== 'teacher'){ const sw = Math.sin(t / 160) * 6; c.strokeStyle = INK; c.lineWidth = 7; c.beginPath(); c.moveTo(-36, 56); c.lineTo(-48 + sw, 92); c.moveTo(36, 56); c.lineTo(48 - sw, 92); c.stroke(); }
+    if (pose === 'back' && id === 'teacher'){ c.strokeStyle = INK; c.lineWidth = 7; c.beginPath(); c.moveTo(34, 52); c.lineTo(52 + Math.sin(t / 90) * 4, 0); c.stroke(); }
+    // head
+    const turn = pose === 'peek' ? .55 : 0;
+    c.save(); c.translate(0, -2);
+    if (C.extra === 'long'){ c.fillStyle = C.hair; rr(c, -34, -20, 68, 70, 24); c.fill(); }
+    ell(c, 0, 0, 34, 36, 0, pose === 'back' ? C.hair : skin, 3);
+    if (pose === 'back'){
+      if (C.extra === 'bald'){ ell(c, 0, -4, 30, 26, 0, skin); c.fillStyle = C.hair; c.beginPath(); c.ellipse(0, 18, 33, 14, 0, 0, Math.PI); c.fill(); }
+      if (C.extra === 'bun'){ ell(c, 0, -36, 15, 13, 0, C.hair, 3); }
+      if (id === 'mom'){ for (let i = 0; i < 7; i++) ell(c, -26 + i * 9, -26 + Math.abs(i - 3) * 4, 8, 8, 0, C.hair, 2); }
+      ell(c, -34, 4, 6, 9, 0, skin, 2.5); ell(c, 34, 4, 6, 9, 0, skin, 2.5);
+    } else {
+      // hair on top
+      c.fillStyle = C.hair;
+      if (C.extra === 'bald'){ c.beginPath(); c.ellipse(-30, -2, 7, 14, 0, 0, 7); c.ellipse(30, -2, 7, 14, 0, 0, 7); c.fill(); }
+      else { c.beginPath(); c.moveTo(-35, 2); c.quadraticCurveTo(-36, -38, 0, -37); c.quadraticCurveTo(36, -38, 35, 2); c.quadraticCurveTo(14, -18 + turn * 8, -35, 2); c.fill(); c.lineWidth = 3; c.stroke(); }
+      if (C.extra === 'bun') ell(c, 0, -38, 14, 12, 0, C.hair, 3);
+      if (id === 'mom') for (let i = 0; i < 7; i++) ell(c, -26 + i * 9, -30 + Math.abs(i - 3) * 4, 7, 7, 0, C.hair, 2);
+      const fx = turn * 14;
+      // eyes
+      if (pose === 'peek'){ ell(c, 12 + fx, -2, 4, 5.5, 0, '#fff', 2); ell(c, 14 + fx, -1, 2.2, 2.6, 0, INK); c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(4 + fx, -12); c.lineTo(20 + fx, -10); c.stroke(); }
+      else if (pose === 'front'){ for (const sd of [-1, 1]){ c.fillStyle = INK; c.fillRect(sd * 12 - 7, -4, 14, 4); ell(c, sd * 12, 1, 3, 3, 0, INK); } c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(-8, 18); c.lineTo(8, 18); c.stroke(); }
+      else { for (const sd of [-1, 1]){ ell(c, sd * 12, 0, 7, 7, 0, '#fff', 2); ell(c, sd * 12, 0, 3.5, 3.5, 0, '#e0453a'); c.strokeStyle = INK; c.lineWidth = 4; c.beginPath(); c.moveTo(sd * 4, -10); c.lineTo(sd * 20, -16); c.stroke(); }
+        c.beginPath(); c.ellipse(0, 18, 11, 8, 0, 0, 7); c.fillStyle = '#7a2e2e'; c.fill(); c.lineWidth = 2.5; c.stroke(); }
+      if (C.extra === 'glasses' || id === 'boss'){ c.strokeStyle = INK; c.lineWidth = 2.5; if (pose !== 'peek'){ c.strokeRect(-22, -8, 18, 13); c.strokeRect(4, -8, 18, 13); } else c.strokeRect(4 + fx, -8, 18, 13); }
+      if (id === 'boss' && pose !== 'peek'){ c.fillStyle = '#3b3430'; c.beginPath(); c.moveTo(-12, 11); c.quadraticCurveTo(0, 6, 12, 11); c.quadraticCurveTo(0, 9, -12, 11); c.fill(); }
+      if (id === 'grandma' && pose !== 'back'){ c.strokeStyle = 'rgba(28,22,20,.35)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-26, 8); c.lineTo(-20, 10); c.moveTo(26, 8); c.lineTo(20, 10); c.stroke(); }
+      ell(c, -20 + fx, 10, 5, 3, 0, 'rgba(240,120,100,.5)'); ell(c, 20 + fx, 10, 5, 3, 0, 'rgba(240,120,100,.5)');
+      if (pose === 'angry'){ c.fillStyle = 'rgba(255,255,255,.85)'; for (const sd of [-1, 1]){ const k = (t / 300) % 1; c.globalAlpha = 1 - k; ell(c, sd * 34, -40 - k * 20, 8 + k * 6, 6 + k * 4, 0, '#fff'); c.globalAlpha = 1; } }
+    }
+    c.restore();
+    c.restore();
+  }
+
+  // ================= you on the sofa =================
+  function drawPlayer(c, playing, caught, t){
+    // who you are (and what you sit on) changes with the watcher
+    const P = {
+      mom:{seat:['#7a5cc9', '#8f74d6'], shirt:'#ffd64a', hair:'#2a2522', style:'kid'},
+      teacher:{seat:['#a0703f', '#c89a6a'], shirt:'#2b4a8a', hair:'#2a2522', style:'uniform'},
+      boss:{seat:['#4a5060', '#6b7280'], shirt:'#2b3550', hair:'#1f1a17', style:'park'},
+      gf:{seat:['#3f8f6a', '#5fb38a'], shirt:'#9aa3b2', hair:'#3b2a20', style:'hoodie'},
+      grandma:{seat:['#d9772b', '#f0a050'], shirt:'#e0453a', hair:'#2a2522', style:'grandkid'},
+    }[A().id];
+    c.fillStyle = P.seat[0]; c.strokeStyle = INK; c.lineWidth = 4;
+    rr(c, 20, 440, 320, 140, 26); c.fill(); c.stroke();
+    c.fillStyle = P.seat[1]; rr(c, 40, 400, 280, 80, 22); c.fill(); c.stroke();
+    // body
+    const bob = playing ? Math.sin(t / 90) * 1.5 : 0;
+    c.save(); c.translate(180, 470 + bob);
+    c.fillStyle = P.shirt; c.beginPath(); c.moveTo(-50, 70); c.quadraticCurveTo(-54, 0, 0, -6); c.quadraticCurveTo(54, 0, 50, 70); c.closePath(); c.fill(); c.stroke();
+    if (P.style === 'uniform' || P.style === 'park'){ c.fillStyle = '#fff'; c.beginPath(); c.moveTo(-12, -4); c.lineTo(0, 18); c.lineTo(12, -4); c.closePath(); c.fill(); c.fillStyle = P.style === 'park' ? '#e0453a' : '#c9322a'; c.beginPath(); c.moveTo(-4, 0); c.lineTo(4, 0); c.lineTo(6, 26); c.lineTo(0, 32); c.lineTo(-6, 26); c.closePath(); c.fill(); c.lineWidth = 2; c.stroke(); c.lineWidth = 3; }
+    if (P.style === 'uniform'){ c.fillStyle = '#ffd64a'; c.fillRect(-36, 14, 14, 5); }
+    if (P.style === 'hoodie'){ c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-8, 0); c.lineTo(-10, 22); c.moveTo(8, 0); c.lineTo(10, 22); c.stroke(); c.strokeStyle = INK; c.lineWidth = 3; ell(c, 0, -6, 34, 10, 0, P.shirt, 3); }
+    if (P.style === 'grandkid'){ c.fillStyle = '#ffd64a'; for (let i = -2; i <= 2; i++) c.fillRect(i * 18 - 4, 20, 8, 8); }
+    // head
+    ell(c, 0, -44, 32, 32, 0, '#f2c79b', 3);
+    c.fillStyle = P.hair; c.beginPath();
+    if (P.style === 'park'){ c.moveTo(-33, -44); c.quadraticCurveTo(-34, -82, 0, -80); c.quadraticCurveTo(34, -82, 33, -46); c.quadraticCurveTo(14, -60, -6, -58); c.quadraticCurveTo(-24, -56, -33, -44); }
+    else if (P.style === 'hoodie'){ c.moveTo(-33, -40); c.quadraticCurveTo(-36, -84, 0, -82); c.quadraticCurveTo(36, -84, 33, -40); c.lineTo(26, -56); c.lineTo(14, -54); c.lineTo(4, -58); c.lineTo(-8, -54); c.lineTo(-20, -57); c.closePath(); }
+    else if (P.style === 'grandkid'){ c.moveTo(-33, -44); c.quadraticCurveTo(-34, -82, 0, -80); c.quadraticCurveTo(34, -82, 33, -44); c.quadraticCurveTo(10, -66, -33, -44); c.moveTo(-4, -79); c.lineTo(2, -94); c.lineTo(6, -80); }
+    else { c.moveTo(-33, -44); c.quadraticCurveTo(-34, -82, 0, -80); c.quadraticCurveTo(34, -82, 33, -44); c.quadraticCurveTo(10, -66, -33, -44); }
+    c.fill();
+    if (P.style === 'park' && !caught){ c.fillStyle = '#5ad1ff'; c.beginPath(); c.ellipse(27, -50 + (t / 40 % 8), 2.5, 4, 0, 0, 7); c.fill(); }
+    if (caught){
+      c.strokeStyle = INK; c.lineWidth = 3; for (const sd of [-1, 1]){ c.beginPath(); c.moveTo(sd * 12 - 5, -50); c.lineTo(sd * 12 + 5, -42); c.moveTo(sd * 12 + 5, -50); c.lineTo(sd * 12 - 5, -42); c.stroke(); }
+      c.beginPath(); c.ellipse(0, -28, 7, 9, 0, 0, 7); c.fillStyle = '#7a2e2e'; c.fill(); c.stroke();
+      c.fillStyle = '#5ad1ff'; c.beginPath(); c.ellipse(-24, -36, 3, 6, 0, 0, 7); c.fill(); c.beginPath(); c.ellipse(24, -36, 3, 6, 0, 0, 7); c.fill();
+    } else if (playing){
+      for (const sd of [-1, 1]){ ell(c, sd * 11, -42, 5, 5, 0, '#fff', 2); ell(c, sd * 11, -40, 2.5, 2.5, 0, INK); c.fillStyle = '#ffd64a'; c.fillRect(sd * 11 - 1, -50, 2, 3); }
+      c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.arc(0, -30, 8, .2, Math.PI - .2); c.stroke();
+    } else {
+      // pretending: eyes down at the book, whistling
+      c.strokeStyle = INK; c.lineWidth = 3; for (const sd of [-1, 1]){ c.beginPath(); c.arc(sd * 11, -42, 5, .3, Math.PI - .3); c.stroke(); }
+      ell(c, 3, -28, 3.5, 3.5, 0, '#7a2e2e', 2);
+      c.fillStyle = INK; c.font = `16px ${KR}`; c.textAlign = 'left'; c.fillText('♪', 26 + Math.sin(t / 200) * 3, -66 - (t / 25 % 14));
+    }
+    ell(c, -22, -34, 5, 3, 0, 'rgba(240,120,100,.5)'); ell(c, 22, -34, 5, 3, 0, 'rgba(240,120,100,.5)');
+    c.restore();
+    // the phone or the textbook in front
+    if (playing && !caught){
+      c.save(); c.translate(180, 530);
+      c.fillStyle = INK; rr(c, -46, -70, 92, 130, 14); c.fill();
+      const glow = c.createLinearGradient(0, -62, 0, 50); glow.addColorStop(0, '#5ad1ff'); glow.addColorStop(1, '#7a5cc9');
+      c.fillStyle = glow; rr(c, -40, -62, 80, 112, 8); c.fill();
+      // tiny game on the phone: a hero swinging at a slime
+      const k = Math.sin(t / 80);
+      ell(c, 14, 10 + Math.abs(k) * -6, 12, 9, 0, '#7be08a', 2); ell(c, 10, 6, 2, 2, 0, INK); ell(c, 18, 6, 2, 2, 0, INK);
+      ell(c, -16, 6, 8, 10, 0, '#ffd64a', 2); c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.moveTo(-10, 4); c.lineTo(-2 + k * 6, -10 + k * 4); c.stroke();
+      c.fillStyle = '#fff'; c.font = `10px ${PX}`; c.textAlign = 'center'; c.fillText('LV ' + (lv | 0), 0, -44);
+      if (now < adUntil){ c.fillStyle = '#fff'; rr(c, -38, -58, 76, 104, 6); c.fill(); c.fillStyle = '#e0453a'; c.font = `14px ${KR}`; c.fillText('광고', 0, -26); c.fillStyle = INK; c.font = `11px ${KR}`; c.fillText('대출 한도', 0, -6); c.fillText('조회하세요', 0, 8); c.fillStyle = '#7a5cc9'; c.font = `10px ${PX}`; c.fillText(Math.ceil((adUntil - now) / 400) + 's', 0, 34); }
+      c.fillStyle = 'rgba(255,255,255,.3)'; c.fillRect(-32, -36, 64, 6); c.fillStyle = '#ffd64a'; c.fillRect(-32, -36, 64 * (lv % 1), 6);
+      c.restore();
+      c.fillStyle = 'rgba(90,209,255,.15)'; c.beginPath(); c.arc(180, 440, 110, 0, 7); c.fill();
+    } else if (!caught){
+      c.save(); c.translate(180, 535); c.rotate(-.04);
+      // the cover-up changes with the watcher
+      const cover = {mom:['#e0453a', '수학의', '정석'], teacher:['#2f7fd1', '국어', '교과서'], boss:['#8a95a3', '주간', '보고서'], gf:['#f07aa8', '우리의', '100일♥'], grandma:['#a0632f', '효도', '편지']}[A().id];
+      c.fillStyle = cover[0]; rr(c, -62, -46, 124, 86, 6); c.fill(); c.lineWidth = 3.5; c.strokeStyle = INK; c.stroke();
+      c.fillStyle = '#fffaf0'; c.fillRect(-56, -40, 54, 74); c.fillRect(2, -40, 54, 74);
+      c.fillStyle = INK; c.font = `13px ${KR}`; c.textAlign = 'center'; c.fillText(cover[1], -29, -12); c.fillText(cover[2], -29, 6);
+      c.strokeStyle = 'rgba(28,22,20,.3)'; c.lineWidth = 2; for (let i = 0; i < 5; i++){ c.beginPath(); c.moveTo(10, -28 + i * 12); c.lineTo(48, -28 + i * 12); c.stroke(); }
+      c.restore();
+    }
+  }
+
+  // ================= sound =================
+  let ac = null, master, sfxBus, musicBus, muted = store.get('md-mute', false), nextT = 0, step = 0, musicOn = false;
+  function ensureAudio(){
+    if (!ac){ try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = muted ? 0 : 1; master.connect(ac.destination); sfxBus = ac.createGain(); sfxBus.connect(master); musicBus = ac.createGain(); musicBus.gain.value = .26; musicBus.connect(master); nextT = ac.currentTime + .1; setInterval(schedule, 30); } catch(e){ ac = null; } }
+    if (ac && ac.state === 'suspended' && !document.hidden) ac.resume().catch(() => {});
+  }
+  function unlockAudio(){ ensureAudio(); if (!ac || unlockAudio.done) return; try { const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); unlockAudio.done = true; } catch(e){} }
+  ['pointerup', 'touchend', 'click', 'keydown'].forEach(t => addEventListener(t, unlockAudio, {passive:true}));
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch(e){}
+  document.addEventListener('visibilitychange', () => { if (!ac) return; if (document.hidden) ac.suspend(); else ac.resume(); });
+  const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+  function tone(f, t, d, type, vol, bus, f2){ const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g); g.connect(bus); o.start(t); o.stop(t + d + .05); }
+  function sfx(k){
+    if (!ac || ac.state !== 'running') return; const t = ac.currentTime;
+    if (k === 'warn'){ tone(1200, t, .08, 'square', .06, sfxBus); tone(1200, t + .12, .08, 'square', .06, sfxBus); }
+    if (k === 'look') tone(220, t, .35, 'sawtooth', .1, sfxBus, 440);
+    if (k === 'smack'){ tone(160, t, .2, 'sine', .5, sfxBus, 50); tone(900, t, .05, 'square', .15, sfxBus, 200); }
+    if (k === 'safe') [988, 1319].forEach((f, i) => tone(f, t + i * .06, .15, 'square', .06, sfxBus));
+    if (k === 'phone') tone(1568 + Math.random() * 400, t, .04, 'square', .025, sfxBus);
+    if (k === 'kakao'){ tone(1760, t, .09, 'sine', .3, sfxBus); tone(2349, t + .1, .14, 'sine', .3, sfxBus); }
+    if (k === 'snitch'){ tone(700, t, .12, 'triangle', .14, sfxBus, 900); tone(900, t + .14, .2, 'triangle', .14, sfxBus, 650); }
+    if (k === 'ad') [523, 659, 784].forEach((f, i) => tone(f, t + i * .07, .12, 'square', .05, sfxBus));
+    if (k === 'clear') [72, 76, 79, 84, 88].forEach((n, i) => tone(mtof(n), t + i * .08, .3, 'square', .06, sfxBus));
+    if (k === 'over') [[62, 0, .4], [61, .45, .4], [60, .9, .4], [59, 1.35, 1.1]].forEach(([n, dt, d]) => tone(mtof(n - 12), t + dt, d, 'sawtooth', .09, sfxBus, mtof(n - 12) * (d > 1 ? .94 : 1)));
+  }
+  // sneaky pizzicato tiptoe theme: it hushes while the watcher looks
+  const SN = [57, null, 60, null, 64, 63, 64, null, 57, null, 60, null, 65, 64, 62, null, 55, null, 59, null, 62, 61, 62, null, 55, null, 59, null, 64, 62, 60, null];
+  function schedule(){
+    if (!ac || ac.state !== 'running' || !musicOn){ if (ac) nextT = ac.currentTime + .05; return; }
+    const S8 = 60 / (96 + stage * 6) / 2;
+    while (nextT < ac.currentTime + .15){
+      const quiet = phase === 'look' || phase === 'caught' ? .25 : 1, n = SN[step % 32];
+      if (n) tone(mtof(n), nextT, .12, 'triangle', .14 * quiet, musicBus);
+      if (step % 4 === 0) tone(mtof(n ? n - 24 : 45), nextT, .2, 'triangle', .18 * quiet, musicBus);
+      if (step % 2 === 1) tone(3000, nextT, .02, 'square', .015 * quiet, musicBus);
+      step++; nextT += S8;
+    }
+  }
+  const muteBtn = $('mute'), paintMute = () => { muteBtn.setAttribute('aria-pressed', muted); muteBtn.setAttribute('aria-label', muted ? '소리 켜기' : '소리 끄기'); };
+  paintMute(); muteBtn.addEventListener('click', () => { muted = !muted; store.set('md-mute', muted); paintMute(); ensureAudio(); if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ac.currentTime, .05); });
+
+  // ================= game state =================
+  let state = 'title', stage = 0, lives = 3, score = 0, safes = 0, best = store.get('md-best', 0);
+  let phase = 'away', phaseEnd = 0, holding = false, progress = 0, lv = 1, streak = 0, releasedAt = -9999, warnAt = 0, fakeNext = false, smackAt = -9999, bubble = null, texts = [], shake = 0;
+  let now = performance.now(), last = now, phoneTick = 0, evNext = 0, forceReal = false, snitch = null, notif = null, adUntil = 0;
+  const A = () => WATCH[stage];
+  function say(text, ms = 1400){ bubble = {text, at: now, until: now + ms}; }
+  function floatText(text, y, color = INK, size = 24, ms = 1000){ texts.push({text, y, color, size, at: now, ms}); }
+  function hud(){
+    $('score').textContent = Math.floor(score).toLocaleString(); $('stageNo').textContent = `STAGE ${stage + 1}/5`;
+    $('lives').textContent = '📱'.repeat(lives) + '🚫'.repeat(3 - lives); $('lives').setAttribute('aria-label', `남은 기회 ${lives}개`);
+  }
+  function setPhase(p, dur){ phase = p; phaseEnd = now + dur * 1000; }
+  function nextAway(){ const a = A(); setPhase('away', rnd(...a.away)); if (Math.random() < .5) say(a.hum, 1200); }
+
+  function newRun(){ stage = 0; lives = 3; score = 0; safes = 0; hud(); showIntro(); }
+  function showIntro(){
+    state = 'intro'; musicOn = false; holding = false;
+    const a = A();
+    $('inKick').textContent = a.boss ? `STAGE ${stage + 1} · BOSS` : `STAGE ${stage + 1} · ${a.place}`;
+    $('inName').textContent = a.name; $('inSay').textContent = a.intro;
+    $('inRule').textContent = stage === 0 ? '꾹 누르면 폰겜, 떼면 공부하는 척. 게이지를 다 채우면 클리어!' : `눈치 속도 ${'★'.repeat(stage + 1)}${'☆'.repeat(4 - stage)} · 페이크 주의`;
+    $('intro').hidden = false; $('goBtn').focus(); hud();
+  }
+  function startStage(){
+    $('intro').hidden = true; ensureAudio();
+    progress = 0; streak = 0; texts = []; bubble = null; state = 'play'; musicOn = true; step = 0;
+    nextAway(); say(A().intro, 1800); evNext = now + 4500; snitch = null; notif = null; adUntil = 0; forceReal = false;
+  }
+  function caught(){
+    const a = A(); lives--; streak = 0; smackAt = now; shake = 1.3; setPhase('caught', 1.6); sfx('smack');
+    floatText(pick(a.caught), 300, '#e0453a', 32, 1500); say('딱 걸렸어!!', 1500); hud();
+  }
+  function afterCaught(){ if (lives <= 0) return gameOver(); holding = false; snitch = null; notif = null; adUntil = 0; forceReal = false; evNext = now + 3500; nextAway(); }
+  function stageClear(){
+    state = 'clear'; musicOn = false; sfx('clear'); const bonus = 500 * (stage + 1); score += bonus; hud();
+    floatText(`STAGE CLEAR +${bonus}`, 300, '#2fae7c', 30, 1500);
+    setTimeout(() => { if (stage === WATCH.length - 1) return allClear(); stage++; showIntro(); }, 1500);
+  }
+  function finish(){ const nb = score > best; if (nb){ best = Math.floor(score); store.set('md-best', best); } return nb; }
+  function gameOver(){
+    state = 'over'; musicOn = false; setTimeout(() => sfx('over'), 200);
+    const a = A(); $('goBig').textContent = a.over[0]; $('goSub').textContent = a.over[1];
+    $('goScore').textContent = Math.floor(score).toLocaleString(); $('goStage').textContent = `${a.name}`; $('goSafe').textContent = safes;
+    const nb = finish(); $('goBest').textContent = best.toLocaleString(); $('goNew').hidden = !nb;
+    shareText = `엄마 몰래 폰겜 ${a.name}한테 걸림 ㅋㅋ ${Math.floor(score).toLocaleString()}점. 너는 엄마한테 바로 걸릴 듯 ㅋ`;
+    $('over').hidden = false; $('againBtn').focus(); submitScore(Math.floor(score), stage + 1, $('myRank'));
+  }
+  function allClear(){
+    state = 'won'; $('wScore').textContent = Math.floor(score).toLocaleString(); const nb = finish(); $('wNew').hidden = !nb;
+    shareText = `엄마 몰래 폰겜 할머니까지 속임 ㅋㅋ ${Math.floor(score).toLocaleString()}점. 눈치 만렙 인증`;
+    $('win').hidden = false; $('againBtn2').focus(); submitScore(Math.floor(score), 6, $('myRank2'));
+  }
+
+  // ================= update =================
+  function update(dt){
+    if (state !== 'play') return;
+    const a = A();
+    if (phase === 'away' && now >= phaseEnd){ setPhase('warn', forceReal ? .38 : a.warn * rnd(.85, 1.15)); fakeNext = !forceReal && Math.random() < a.fake; forceReal = false; warnAt = now; sfx('warn'); say(a.peek, a.warn * 1000); }
+    else if (phase === 'warn' && now >= phaseEnd){
+      if (fakeNext){ say(a.fakeLine, 1100); if (!holding && now - releasedAt < 1200) floatText(pick(TOO_EARLY), 250, '#7a5cc9', 22, 900); nextAway(); }
+      else {
+        setPhase('look', rnd(...a.look)); sfx('look');
+        if (holding) caught();
+        else if (now - releasedAt < 260){ safes++; const b = 200 + stage * 50; score += b; sfx('safe'); floatText(`${pick(SAFE)} +${b}`, 250, '#2fae7c', 24, 900); }
+      }
+    }
+    else if (phase === 'look'){
+      if (holding){ caught(); }
+      else if (now >= phaseEnd){
+        if (Math.random() < a.double){ setPhase('warn', a.warn * .6); fakeNext = false; sfx('warn'); say('…한 번 더 볼까?', 700); }
+        else nextAway();
+      }
+    }
+    else if (phase === 'caught' && now >= phaseEnd) afterCaught();
+    // interference: a KakaoTalk ping, a snitch, or an unskippable ad on the phone
+    if (phase === 'away' && now >= evNext && progress > .08){
+      evNext = now + rnd(4.2, 7) * 1000 - stage * 350;
+      const r = Math.random();
+      if (r < .38 && holding){ notif = {at: now}; sfx('kakao'); floatText('카톡! 🔔 소리 켜져 있음!!', 296, '#c9322a', 22, 1000); setPhase('warn', .42); fakeNext = false; say('무슨 소리야?', 600); }
+      else if (r < .72){ const sn = SNITCH[a.id]; snitch = {at: now, name: sn[0], line: sn[1], col: sn[2]}; sfx('snitch'); forceReal = true; phaseEnd = now + 900; }
+      else { adUntil = now + 1800; sfx('ad'); floatText('광고 나옴… 진행 멈춤 ㅋ', 296, '#7a5cc9', 20, 1100); }
+    }
+    if (snitch && now - snitch.at > 2200) snitch = null;
+    if (holding && (phase === 'away' || phase === 'warn')){
+      streak += dt; const rate = 100 * (1 + stage * .25) * (1 + Math.min(2, streak * .25));
+      const ad = now < adUntil; score += rate * dt * (ad ? .2 : 1); if (!ad){ progress += dt / a.need; lv += dt * .6; }
+      if ((phoneTick += dt) > .12){ phoneTick = 0; sfx('phone'); }
+      if (progress >= 1){ progress = 1; holding = false; return stageClear(); }
+    } else streak = 0;
+    hud();
+  }
+
+  // ================= draw =================
+  function draw(){
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#f3e6d6'; ctx.fillRect(0, 0, W, H);
+    const sh = shake > 0 ? (Math.random() - .5) * 12 * shake : 0; shake = Math.max(0, shake - .05);
+    ctx.setTransform(dpr * S, 0, 0, dpr * S, dpr * (OX + sh), dpr * OY);
+    const c = ctx, t = now, a = A();
+    drawRoom(c, a.id, t);
+    const pose = phase === 'caught' ? 'angry' : phase === 'look' ? 'front' : phase === 'warn' ? 'peek' : 'back';
+    if (state !== 'title') drawWatcher(c, a.id, state === 'play' || state === 'clear' ? pose : 'back', 180, 190 + (a.id === 'grandma' ? 14 : 0), t, 1.15);
+    // watcher's eye beam while looking
+    if (phase === 'look' && state === 'play'){ c.fillStyle = 'rgba(255,80,60,.10)'; c.beginPath(); c.moveTo(150, 190); c.lineTo(20, 600); c.lineTo(340, 600); c.lineTo(210, 190); c.closePath(); c.fill(); }
+    // the floor
+    c.fillStyle = '#d9b98f'; c.fillRect(0, 330, DW, 270);
+    c.fillStyle = 'rgba(0,0,0,.05)'; for (let y = 340; y < 600; y += 22) c.fillRect(0, y, DW, 2);
+    drawPlayer(c, holding && state === 'play', phase === 'caught' && state === 'play', t);
+    // the snitch pops in from the left
+    if (snitch && state === 'play'){
+      const k = Math.min(1, (now - snitch.at) / 200), x = -40 + k * 100, y = 470;
+      c.save(); c.translate(x, y);
+      if (snitch.col === 'dog'){ ell(c, 0, 20, 24, 18, 0, '#c98a4a', 3); ell(c, 0, -6, 20, 18, 0, '#c98a4a', 3); ell(c, -16, -10, 7, 14, .4, '#7a4b2a', 2.5); ell(c, 16, -10, 7, 14, -.4, '#7a4b2a', 2.5); ell(c, -7, -8, 2.5, 3, 0, INK); ell(c, 7, -8, 2.5, 3, 0, INK); ell(c, 0, 2, 4, 3, 0, INK); c.beginPath(); c.ellipse(0, 9, 5, 4 + Math.abs(Math.sin(now / 80)) * 3, 0, 0, 7); c.fillStyle = '#7a2e2e'; c.fill(); }
+      else { c.fillStyle = snitch.col; c.strokeStyle = INK; c.lineWidth = 3; c.beginPath(); c.moveTo(-24, 50); c.quadraticCurveTo(-26, 10, 0, 8); c.quadraticCurveTo(26, 10, 24, 50); c.closePath(); c.fill(); c.stroke();
+        ell(c, 0, -12, 20, 20, 0, '#f2c79b', 3); c.fillStyle = '#3b2a20'; c.beginPath(); c.arc(0, -16, 20, Math.PI, 0); c.fill();
+        ell(c, -7, -10, 2.5, 3, 0, INK); ell(c, 7, -10, 2.5, 3, 0, INK); c.beginPath(); c.ellipse(0, 0, 5, 4 + Math.abs(Math.sin(now / 90)) * 2, 0, 0, 7); c.fillStyle = '#7a2e2e'; c.fill();
+        c.strokeStyle = INK; c.lineWidth = 4; c.beginPath(); c.moveTo(18, 20); c.lineTo(40, 4 + Math.sin(now / 70) * 4); c.stroke(); }
+      c.restore();
+      c.font = `16px ${KR}`; const tw = c.measureText(snitch.line).width + 20; c.fillStyle = '#fff'; c.strokeStyle = INK; c.lineWidth = 2.5; rr(c, 8, 384, tw, 28, 12); c.fill(); c.stroke();
+      c.fillStyle = INK; c.textAlign = 'left'; c.fillText(snitch.line, 18, 404);
+      c.fillStyle = '#e0453a'; c.font = `13px ${KR}`; c.fillText(`고자질쟁이 ${snitch.name}`, 10, 378);
+    }
+    // KakaoTalk ping ring around the phone
+    if (notif && now - notif.at < 700){ const k = (now - notif.at) / 700; c.strokeStyle = `rgba(255,214,0,${1 - k})`; c.lineWidth = 5; c.beginPath(); c.arc(180, 520, 60 + k * 80, 0, 7); c.stroke(); }
+    // the smack
+    const sk = (now - smackAt) / 600;
+    if (sk >= 0 && sk < 1){
+      c.save(); c.translate(260 - sk * 40, 430 + Math.sin(sk * Math.PI) * -30); c.rotate(-.6 + sk * .8);
+      c.fillStyle = '#f2c79b'; c.strokeStyle = INK; c.lineWidth = 3.5; rr(c, -30, -20, 60, 46, 18); c.fill(); c.stroke();
+      for (let i = 0; i < 4; i++){ rr(c, -26 + i * 14, -46 + Math.abs(i - 1.5) * 4, 12, 30, 6); c.fill(); c.stroke(); }
+      c.restore();
+      c.fillStyle = '#fff'; c.font = `40px ${KR}`; c.textAlign = 'center'; c.lineWidth = 7; c.strokeStyle = INK; c.strokeText('짝!', 250, 420); c.fillText('짝!', 250, 420);
+    }
+    // progress bar
+    if (state === 'play' || state === 'clear'){
+      c.fillStyle = 'rgba(28,22,20,.75)'; rr(c, 20, 342, 320, 26, 13); c.fill();
+      c.fillStyle = '#ffd64a'; rr(c, 24, 346, Math.max(14, 312 * progress), 18, 9); c.fill();
+      c.fillStyle = '#fff'; c.font = `14px ${KR}`; c.textAlign = 'center'; c.fillText(progress < .03 && !holding ? '꾹 누르면 폰겜 시작' : `폰겜 진행도 ${Math.floor(progress * 100)}%`, 180, 360);
+    }
+    // bubble from the watcher
+    if (bubble && now < bubble.until && state !== 'title'){
+      let fs = 18; c.font = `${fs}px ${KR}`; if (c.measureText(bubble.text).width > 312){ fs = 15; c.font = `${fs}px ${KR}`; }
+      const w = Math.min(340, c.measureText(bubble.text).width + 24), bx = Math.max(10, Math.min(350 - w, 230 - w / 2));
+      c.fillStyle = '#fff'; c.strokeStyle = INK; c.lineWidth = 2.5; rr(c, bx, 40, w, 32, 14); c.fill(); c.stroke();
+      c.fillStyle = INK; c.textAlign = 'center'; c.fillText(bubble.text, bx + w / 2, 62);
+    }
+    // warning marks
+    if (phase === 'warn' && state === 'play'){ c.fillStyle = '#e0453a'; c.font = `38px ${KR}`; c.textAlign = 'center'; c.lineWidth = 6; c.strokeStyle = '#fff'; c.strokeText('!', 120, 120); c.fillText('!', 120, 120); }
+
+    texts = texts.filter(x => now - x.at < x.ms);
+    for (const x of texts){ const k = (now - x.at) / x.ms; c.save(); c.globalAlpha = 1 - Math.max(0, k - .7) / .3; c.font = `${x.size}px ${KR}`; c.textAlign = 'center'; c.lineJoin = 'round'; c.lineWidth = 6; c.strokeStyle = '#fff'; c.strokeText(x.text, 180, x.y - k * 18); c.fillStyle = x.color; c.fillText(x.text, 180, x.y - k * 18); c.restore(); }
+  }
+  function face(id, wid, pose){
+    const c = $(id).getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, 280, 280);
+    c.fillStyle = '#f6eee4'; c.beginPath(); c.arc(140, 140, 130, 0, 7); c.fill(); c.save(); c.beginPath(); c.arc(140, 140, 130, 0, 7); c.clip();
+    drawWatcher(c, wid, pose, 140, 130, now, 1.6); c.restore();
+    if (pose === 'angry'){ c.font = `34px ${KR}`; c.fillStyle = '#e0453a'; c.textAlign = 'center'; c.fillText('딱 걸렸어!', 140, 268); }
+  }
+  function loop(){
+    now = performance.now(); const dt = Math.min(.05, (now - last) / 1000); last = now;
+    update(dt); draw();
+    if (!$('start').hidden) face('stFace', 'mom', (now % 3000) < 2000 ? 'back' : 'front');
+    if (!$('intro').hidden) face('inFace', A().id, 'front');
+    if (!$('over').hidden) face('goFace', A().id, 'angry');
+    if (!$('win').hidden) face('wFace', 'grandma', 'peek');
+    requestAnimationFrame(loop);
+  }
+
+  // ================= input: hold to play =================
+  const pts = new Set();
+  function press(on){
+    if (state !== 'play' || phase === 'caught'){ holding = false; return; }
+    if (on && !holding){ holding = true; if (phase === 'look') caught(); }
+    else if (!on && holding){ holding = false; releasedAt = now; }
+  }
+  cv.addEventListener('pointerdown', e => { e.preventDefault(); pts.add(e.pointerId); press(true); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(tp => cv.addEventListener(tp, e => { pts.delete(e.pointerId); if (!pts.size) press(false); }));
+  addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' || e.repeat) return; if (e.key === ' '){ e.preventDefault(); press(true); } });
+  addEventListener('keyup', e => { if (e.key === ' ') press(false); });
+
+  // ================= nickname & buttons =================
+  let nick = ''; try { nick = localStorage.getItem('spacexxx-nick') || ''; } catch(e){}
+  const nickEl = $('nick'); nickEl.value = nick;
+  nickEl.addEventListener('input', () => { nick = nickEl.value.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12); try { localStorage.setItem('spacexxx-nick', nick); } catch(e){} if (nick){ $('nickWarn').textContent = ''; nickEl.parentElement.classList.remove('warn'); } });
+  nickEl.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); $('startBtn').click(); } });
+  function requireNick(){ if (nick) return true; const b = nickEl.parentElement; b.classList.remove('warn'); void b.offsetWidth; b.classList.add('warn'); $('nickWarn').textContent = '닉네임을 입력하세요'; nickEl.focus(); return false; }
+  $('startBtn').addEventListener('click', () => { if (!requireNick()) return; ensureAudio(); $('start').hidden = true; newRun(); logPlay(); });
+  $('goBtn').addEventListener('click', startStage);
+  const again = () => { $('over').hidden = true; $('win').hidden = true; $('myRank').textContent = ''; $('myRank2').textContent = ''; ensureAudio(); newRun(); logPlay(); };
+  $('againBtn').addEventListener('click', again); $('againBtn2').addEventListener('click', again);
+
+  // ================= leaderboard =================
+  // Fill these in to turn on worldwide ranking. Left empty, rankings stay on this device.
+  const LEADERBOARD = { projectId: '', apiKey: '' };
+  const COLLECTION = 'mom_scores', REMOTE = !!(LEADERBOARD.projectId && LEADERBOARD.apiKey), LB_LIMIT = 100;
+  let submittedBest = store.get('md-submitted', 0), shareText = '';
+  const playerName = () => nick || '익명';
+  const fsBase = () => `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(LEADERBOARD.projectId)}/databases/(default)/documents`;
+  function logPlay(){ if (!REMOTE) return; try { fetch(`${fsBase()}/plays?key=${LEADERBOARD.apiKey}`, {method:'POST', headers:{'Content-Type':'application/json'}, keepalive:true, body: JSON.stringify({fields:{game:{stringValue:'mom'}, ts:{timestampValue:new Date().toISOString()}}})}).catch(() => {}); } catch(e){} }
+  async function fsPost(url, body){ const ctrl = new AbortController(), tm = setTimeout(() => ctrl.abort(), 7000); try { const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), signal: ctrl.signal}); if (!r.ok) throw new Error(r.status); return await r.json(); } finally { clearTimeout(tm); } }
+  async function loadBoard(){
+    if (!REMOTE) return {board: store.get('md-board', []).sort((a, b) => b.score - a.score).slice(0, LB_LIMIT), remote:false};
+    const rows = await fsPost(`${fsBase()}:runQuery?key=${encodeURIComponent(LEADERBOARD.apiKey)}`, {structuredQuery:{from:[{collectionId: COLLECTION}], orderBy:[{field:{fieldPath:'score'}, direction:'DESCENDING'}], limit: LB_LIMIT}});
+    return {remote:true, board: rows.filter(r => r.document).map(r => { const f = r.document.fields || {}; return {name: String((f.name && f.name.stringValue) || '?').slice(0, 12), score: +((f.score && f.score.integerValue) || 0), stage: +((f.stage && f.stage.integerValue) || 0)}; })};
+  }
+  async function saveEntry(e){
+    if (!REMOTE){ const b = store.get('md-board', []); b.push(e); b.sort((a, c) => c.score - a.score); store.set('md-board', b.slice(0, LB_LIMIT)); return; }
+    await fsPost(`${fsBase()}/${COLLECTION}?key=${encodeURIComponent(LEADERBOARD.apiKey)}`, {fields:{name:{stringValue: e.name}, score:{integerValue: String(e.score)}, stage:{integerValue: String(e.stage)}, ts:{timestampValue: new Date().toISOString()}}});
+  }
+  async function submitScore(sc, st, el){
+    el.textContent = '순위 확인 중…';
+    try { if (sc > 0 && sc > submittedBest){ await saveEntry({name: playerName(), score: sc, stage: st}); submittedBest = sc; store.set('md-submitted', sc); }
+      const {board: b, remote} = await loadBoard(), above = b.filter(r => r.score > sc).length;
+      el.textContent = `${playerName()} · ${remote ? '전체' : '이 기기'} ${above + 1}위`;
+    } catch(err){ el.textContent = '순위 서버에 연결하지 못했어요'; }
+  }
+  const stageName = s => s > 5 ? '올클리어' : `${WATCH[s - 1].name}한테 걸림`;
+  const rankPanel = $('rankPanel');
+  async function openRank(){
+    rankPanel.hidden = false; $('rankClose').focus(); const list = $('rankList'), note = $('rankNote'); list.textContent = ''; note.textContent = '불러오는 중…';
+    try { const {board: b, remote} = await loadBoard(); note.textContent = remote ? '전체 TOP 30' : '온라인 순위가 아직 연결되지 않아 이 기기 기록만 보여요'; if (!b.length) note.textContent += ' · 아직 기록이 없어요';
+      const me = playerName();
+      b.slice(0, 30).forEach((r, i) => { const li = document.createElement('li'); if (r.name === me) li.className = 'me';
+        const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i + 1;
+        const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name; const m = document.createElement('small'); m.textContent = r.stage ? stageName(r.stage) : ''; nm.appendChild(m);
+        const sc = document.createElement('b'); sc.textContent = r.score.toLocaleString(); li.append(rk, nm, sc); list.appendChild(li); });
+    } catch(err){ note.textContent = '순위를 불러오지 못했어요'; }
+  }
+  ['rankBtn', 'rankBtn2', 'rankBtn3'].forEach(id => $(id).addEventListener('click', openRank));
+  $('rankClose').addEventListener('click', () => { rankPanel.hidden = true; });
+  rankPanel.addEventListener('pointerdown', e => { if (e.target === rankPanel) rankPanel.hidden = true; });
+  async function share(el){
+    const text = `${shareText} — ${playerName()}\n${location.href.split('#')[0]}`;
+    try { if (navigator.share){ await navigator.share({title:'엄마 몰래 폰겜', text}); return; } } catch(err){ if (err && err.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); el.textContent = '복사했어요'; } catch(err){ el.textContent = text; }
+  }
+  $('shareBtn').addEventListener('click', () => share($('myRank'))); $('shareBtn2').addEventListener('click', () => share($('myRank2')));
+
+  window.__M = {ev: c => eval(c)};
+  hud(); requestAnimationFrame(loop);
+})();
+</script>
+</body></html>
